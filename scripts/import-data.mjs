@@ -1,0 +1,6 @@
+// Imports an explicit JSON export into an empty production database, atomically.
+import {Pool} from 'pg';import {readFileSync} from 'node:fs';
+if(!process.env.DATABASE_URL||!process.argv[2])throw new Error('Usage: DATABASE_URL configured, npm run db:import -- /path/to/export.json');
+const tables=['series','events','members','entries','settings','audit','result_meetings'];
+const data=JSON.parse(readFileSync(process.argv[2],'utf8'));const pool=new Pool({connectionString:process.env.DATABASE_URL});const db=await pool.connect();
+try{await db.query('BEGIN');for(const table of tables){const existing=await db.query(`SELECT 1 FROM "${table}" LIMIT 1`);if(existing.rowCount)throw new Error(`Target ${table} is not empty; refusing to overwrite data.`);const columns=(await db.query('SELECT column_name FROM information_schema.columns WHERE table_schema=current_schema() AND table_name=$1',[table])).rows.map(r=>r.column_name);for(const row of data[table]??[]){const keys=Object.keys(row);if(keys.some(k=>!columns.includes(k)))throw new Error('Unexpected export column');await db.query(`INSERT INTO "${table}" (${keys.map(k=>'"'+k+'"').join(',')}) VALUES (${keys.map((_,i)=>'$'+(i+1)).join(',')})`,keys.map(k=>row[k]));}}await db.query('COMMIT');console.log('Import completed.');}catch(e){await db.query('ROLLBACK');throw e;}finally{db.release();await pool.end();}

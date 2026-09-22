@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {PGlite} from '@electric-sql/pglite';
+import {readFileSync} from 'node:fs';
+const db=new PGlite();await db.exec(readFileSync(new URL('../db/postgres.sql',import.meta.url),'utf8'));
+await db.query("INSERT INTO series VALUES ('s','Summer','now')");
+await db.query("INSERT INTO events (id,title,description,starts,ends,cutoff,capacity,member_price,guest_price,status,created,series_id) VALUES ('e','Race','','2027','2028','2026',1,1000,1500,'published','now','s')");
+const query="INSERT INTO entries (id,event_id,user_id,email,name,brca,race_class,transponder,amount,method,payment,status,created) SELECT $1,'e',$2,'test@example.com','Driver','123','Buggy','',1000,'cash','unpaid','confirmed','now' WHERE (SELECT COUNT(*) FROM entries WHERE event_id='e' AND status='confirmed') < (SELECT capacity FROM events WHERE id='e') ON CONFLICT(event_id,user_id) DO NOTHING";
+assert.equal((await db.query(query,['a','user1'])).affectedRows,1);assert.equal((await db.query(query,['b','user2'])).affectedRows,0);
+await assert.rejects(db.query("INSERT INTO series VALUES ('s2','summer','now')"));
+await assert.rejects(db.query("UPDATE events SET series_id='missing' WHERE id='e'"));
+await db.exec('BEGIN');await db.query("UPDATE events SET title='Changed' WHERE id='e'");await db.exec('ROLLBACK');assert.equal((await db.query("SELECT title FROM events WHERE id='e'")).rows[0].title,'Race');
+await db.close();console.log('PostgreSQL schema, capacity, duplicate series, foreign keys and rollback checks passed.');
