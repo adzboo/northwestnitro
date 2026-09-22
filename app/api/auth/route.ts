@@ -1,7 +1,8 @@
+import {isAllowedOrigin} from '@/lib/request-origin';
 import {authClient,safeReturn} from '@/lib/auth';
 import {z} from 'zod';
 export async function POST(req:Request){
- if(req.headers.get('origin')!==new URL(req.url).origin)return Response.json({error:'Please submit from this website.'},{status:403});
+ if(!isAllowedOrigin(req))return Response.json({error:'Please submit from this website.'},{status:403});
  try{const raw=await req.text();if(raw.length>3000)return Response.json({error:'Request too large.'},{status:413});const d=JSON.parse(raw);const auth=await authClient();
  if(d.action==='signout'){await auth.auth.signOut();return Response.json({returnTo:'/'});}
  const email=z.string().trim().email().max(254).parse(d.email).toLowerCase();

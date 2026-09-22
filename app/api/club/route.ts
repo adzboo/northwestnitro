@@ -1,3 +1,4 @@
+import {isAllowedOrigin} from '@/lib/request-origin';
 import {z} from 'zod';
 import {database,runtime} from '@/db/store';
 import {identity,log} from '@/lib/server';
@@ -21,7 +22,7 @@ export async function GET(req:Request){try{
  return ok({series,events,entries,members,initialAdminRevoked,online:enabled?.value==='true'&&configured,paymentConfigured:admin?configured:undefined,user:user?{name:user.displayName,email:user.email,admin:user.admin,owner:user.owner,member:user.member}:null});
  }catch(e){console.error('Club read failed',e);return fail('The club service is temporarily unavailable. Please try again.',503);}}
 export async function POST(req:Request){try{
- if(req.headers.get('origin')!==new URL(req.url).origin)return fail('Please submit from this website.',403);
+ if(!isAllowedOrigin(req))return fail('Please submit from this website.',403);
  const raw=await req.text();if(raw.length>16000)return fail('Request too large.',413);
  let data;try{data=JSON.parse(raw);}catch{return fail('Invalid request.');}
  const user=await identity();if(!user)return fail('Please sign in to continue.',401);

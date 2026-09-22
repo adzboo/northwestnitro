@@ -1,3 +1,4 @@
+import {isAllowedOrigin} from '@/lib/request-origin';
 import {database} from '@/db/store';
 import {identity} from '@/lib/server';
 import {getVenueMeetings,importMeeting,meetingId} from '@/lib/rc-results';
@@ -12,7 +13,7 @@ export async function GET(req:Request){try{const url=new URL(req.url),admin=url.
  return json({meetings:rows.map(r=>({...r,published:!!r.published}))});
  }catch(e){console.error('Results read failed',e);return error('Results could not be loaded. Please try again shortly.',503);}}
 export async function POST(req:Request){try{
- if(req.headers.get('origin')!==new URL(req.url).origin)return error('Please submit from this website.',403);
+ if(!isAllowedOrigin(req))return error('Please submit from this website.',403);
  const user=await identity();if(!user?.admin)return error('Administrator access required.',403);
  const raw=await req.text();if(raw.length>3000)return error('Request too large.',413);let data;try{data=JSON.parse(raw);}catch{return error('Invalid request.');}
  const db=database(),now=new Date().toISOString();

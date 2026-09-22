@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {isAllowedOrigin} from '../lib/request-origin.ts';
+const config={NODE_ENV:'production',SITE_URL:'https://club.example/',DEPLOY_URL:'https://deploy-123.netlify.app'};
+const request=(origin,extra={})=>new Request('http://internal-function:3000/api/auth',{headers:{...(origin?{Origin:origin}:{}),...extra}});
+assert.equal(isAllowedOrigin(request('https://club.example'),config),true);
+assert.equal(isAllowedOrigin(request('https://deploy-123.netlify.app'),config),true);
+for(const origin of [undefined,'null','https://evil.example','https://club.example.evil.example','http://club.example'])assert.equal(isAllowedOrigin(request(origin,{'x-forwarded-host':'club.example'}),config),false);
+assert.equal(isAllowedOrigin(request('http://internal-function:3000'),config),false);
+assert.equal(isAllowedOrigin(request('http://internal-function:3000'),{NODE_ENV:'development'}),true);
+console.log('Origin checks passed: proxied site and explicit deploy allowed; missing, foreign and spoofed origins rejected.');
