@@ -1,3 +1,4 @@
+import './home-centre.css';
 import LatestResults from './latest-results';
 import { ArrowUpRight, MapPin, Timer, Users } from 'lucide-react';
 export default function Home(){return <>
