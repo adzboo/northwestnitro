@@ -9,4 +9,11 @@ assert.equal((await db.query(query,['a','user1'])).affectedRows,1);assert.equal(
 await assert.rejects(db.query("INSERT INTO series VALUES ('s2','summer','now')"));
 await assert.rejects(db.query("UPDATE events SET series_id='missing' WHERE id='e'"));
 await db.exec('BEGIN');await db.query("UPDATE events SET title='Changed' WHERE id='e'");await db.exec('ROLLBACK');assert.equal((await db.query("SELECT title FROM events WHERE id='e'")).rows[0].title,'Race');
+const remove="DELETE FROM events WHERE id=$1 AND NOT EXISTS (SELECT 1 FROM entries WHERE event_id=$1)";
+assert.equal((await db.query(remove,['e'])).affectedRows,0);
+await db.query("UPDATE entries SET status='cancelled' WHERE event_id='e'");
+assert.equal((await db.query(remove,['e'])).affectedRows,0);
+await db.query("INSERT INTO events (id,title,description,starts,ends,cutoff,capacity,member_price,guest_price,status,created) VALUES ('empty','Empty','','2027','2028','2026',1,1000,1500,'draft','now')");
+assert.equal((await db.query(remove,['empty'])).affectedRows,1);
+assert.equal((await db.query(remove,['missing'])).affectedRows,0);
 await db.close();console.log('PostgreSQL schema, capacity, duplicate series, foreign keys and rollback checks passed.');

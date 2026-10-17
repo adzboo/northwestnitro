@@ -66,6 +66,15 @@ export async function POST(req:Request){try{
  const existing=await db.prepare('SELECT id FROM series WHERE lower(name)=lower(?)').bind(name).first();if(existing)return fail('A series with this name already exists.',409);
  await db.prepare('INSERT INTO series (id,name,created) VALUES (?,?,?)').bind(id,name,now).run();await log(user.userId,'save_series',id);return ok({message:'Race series added.',id});
  }
+ if(data.action==='remove_event'){
+ const id=text.parse(data.id);
+ const result=await db.prepare('DELETE FROM events WHERE id=? AND NOT EXISTS (SELECT 1 FROM entries WHERE event_id=?)').bind(id,id).run();
+ if(!result.meta.changes){
+ const event=await db.prepare('SELECT id FROM events WHERE id=?').bind(id).first();
+ return event?fail('This event has race entries and cannot be removed. Edit the event and set its status to Cancelled to preserve booking and payment records.',409):fail('Event not found.',404);
+ }
+ await log(user.userId,'remove_event',id);return ok({message:'Race event removed.'});
+ }
  if(data.action==='save_event'){
  const v=eventSchema.parse(data);const id=v.id||crypto.randomUUID();
  if(v.series_id&&!await db.prepare('SELECT id FROM series WHERE id=?').bind(v.series_id).first())return fail('Choose an existing race series.');
