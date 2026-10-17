@@ -1,3 +1,17 @@
+# Current registration setup
+
+Registration now uses email/password without email codes. In Supabase Authentication > Sign In / Providers > Email, disable Confirm email and keep email/password sign-in enabled. The signup endpoint checks that confirmation is disabled before creating an account, to avoid sending unwanted confirmation emails.
+
+Before deployment, set MAIN_ADMIN_USER_ID in Netlify to the existing Yahoo administrator account UUID from Supabase Authentication > Users. Set INITIAL_ADMIN_USER_ID to the existing Gmail administrator UUID. Never use an email address as either value. Account IDs are required because unverified email addresses cannot safely grant privileges. Existing member admin roles remain attached to their user IDs.
+
+Existing email-code users need a password set securely before password sign-in works; do not delete/recreate their users, which changes their IDs. The website does not send reset emails in this flow. Use an authorised Supabase account-management process to set an initial password, without sharing passwords in chat.
+
+Imported legacy membership IDs must be explicitly reconciled to Supabase user IDs by an administrator before use. Automatic email-based record claiming is disabled. Accounts created by this app with Supabase IDs retain their records.
+
+Users create an account, complete their membership application, pay in person, and wait for the administrator to record payment, assign a membership number and activate membership. Both booking and card-checkout APIs reject accounts without paid, approved membership covering the race date. Existing bookings are retained.
+
+The earlier email-code setup below is historical and superseded by this section.
+
 # North West Nitro - Netlify edition
 
 A standard Next.js app with PostgreSQL persistence and Supabase email-code authentication. The original Sites/Cloudflare preview remains in the sibling `north-west-nitro` directory.

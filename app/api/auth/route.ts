@@ -6,8 +6,16 @@ export async function POST(req:Request){
  try{const raw=await req.text();if(raw.length>3000)return Response.json({error:'Request too large.'},{status:413});const d=JSON.parse(raw);const auth=await authClient();
  if(d.action==='signout'){await auth.auth.signOut();return Response.json({returnTo:'/'});}
  const email=z.string().trim().email().max(254).parse(d.email).toLowerCase();
- if(d.action==='send'){const {error}=await auth.auth.signInWithOtp({email,options:{shouldCreateUser:true}});if(error)return Response.json({error:'Unable to send a code. Please wait a minute and try again.'},{status:429});return Response.json({message:'Check your email for your sign-in code.'});}
- if(d.action==='verify'){const token=z.string().regex(/^\d{6,10}$/).parse(d.token);const {error}=await auth.auth.verifyOtp({email,token,type:'email'});if(error)return Response.json({error:'This code is invalid or expired. Request a new code.'},{status:400});return Response.json({returnTo:safeReturn(d.returnTo)});}
+ if(d.action==='signup'||d.action==='signin'){
+ const password=z.string().min(d.action==='signup'?12:1).max(128).parse(d.password);
+ if(d.action==='signup'){
+ const settings=await fetch(process.env.SUPABASE_URL+'/auth/v1/settings',{headers:{apikey:process.env.SUPABASE_PUBLISHABLE_KEY!},cache:'no-store'});
+ const config=await settings.json();if(!settings.ok||config.mailer_autoconfirm!==true)return Response.json({error:'Registration is not ready yet. The club must disable email confirmation in Supabase before accounts can be created without emails.'},{status:503});
+ const {data,error}=await auth.auth.signUp({email,password});if(error||!data.session)return Response.json({error:'Unable to create this account. If you already have an account, sign in instead.'},{status:400});
+ return Response.json({returnTo:'/membership'});
+ }
+ const {error}=await auth.auth.signInWithPassword({email,password});if(error)return Response.json({error:'Email or password is incorrect, or the account is unavailable.'},{status:400});return Response.json({returnTo:safeReturn(d.returnTo)});
+ }
  return Response.json({error:'Invalid action.'},{status:400});
  }catch(e){console.error('Authentication failed',e instanceof Error?e.name:'unknown');return Response.json({error:'Sign-in is unavailable or the details are invalid. Please try again later.'},{status:503});}
 }
