@@ -8,6 +8,7 @@ export const dynamic='force-dynamic';
 const ok=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 const fail=(message:string,status=400)=>ok({error:message},status);
 const text=z.string().trim().min(1).max(150);
+const personName=text.refine(value=>!value.includes('@'),'Enter the person’s first and last name, not an email address.');
 const eventSchema=z.object({series_id:z.string().trim().min(1).max(150).nullable().default(null),id:z.string().optional(),title:text,description:z.string().trim().max(4000),starts:z.string().datetime(),ends:z.string().datetime(),cutoff:z.string().datetime(),capacity:z.number().int().min(1).max(1000),member_price:z.number().int().min(100).max(100000),guest_price:z.number().int().min(100).max(100000),status:z.enum(['draft','published','cancelled'])}).refine(v=>v.ends>v.starts&&v.cutoff<=v.starts,'End must follow start; entries must close before the race.');
 export async function GET(req:Request){try{
  const db=database(),user=await identity();const admin=new URL(req.url).searchParams.get('view')==='admin';
@@ -15,7 +16,7 @@ export async function GET(req:Request){try{
  const events=(await db.prepare(`SELECT e.*, s.name AS series_name, (SELECT COUNT(*) FROM entries b WHERE b.event_id=e.id AND b.status='confirmed') AS registered FROM events e LEFT JOIN series s ON s.id=e.series_id ${admin?'':"WHERE e.status!='draft'"} ORDER BY e.starts`).all()).results;
  const enabled=await db.prepare("SELECT value FROM settings WHERE key='online_payments'").first<{value:string}>();const env=runtime();
  const configured=!!(env.STRIPE_SECRET_KEY&&env.STRIPE_WEBHOOK_SECRET&&env.SITE_URL?.startsWith('https://'));
- const entries=user?(await db.prepare(`SELECT b.*,e.title,e.starts FROM entries b JOIN events e ON e.id=b.event_id ${admin?'':'WHERE b.user_id=?'} ORDER BY e.starts DESC`).bind(...(admin?[]:[user.userId])).all()).results:[];
+ const entries=user?(await db.prepare(`SELECT b.*,e.title,e.starts,CASE WHEN (b.name LIKE '%@%' OR trim(b.name)='') AND m.name NOT LIKE '%@%' AND trim(m.name)!='' THEN m.name ELSE b.name END AS name FROM entries b JOIN events e ON e.id=b.event_id LEFT JOIN members m ON m.id=b.user_id ${admin?'':'WHERE b.user_id=?'} ORDER BY e.starts DESC`).bind(...(admin?[]:[user.userId])).all()).results:[];
  const members=admin?(await db.prepare('SELECT * FROM members ORDER BY created DESC').all()).results:[];
  const initialAdminRevoked=admin?(await db.prepare("SELECT value FROM settings WHERE key='initial_admin_revoked'").first<{value:string}>())?.value==='true':undefined;
  const series=(await db.prepare('SELECT id,name FROM series ORDER BY lower(name)').all()).results;
@@ -28,14 +29,14 @@ export async function POST(req:Request){try{
  const user=await identity();if(!user)return fail('Please sign in to continue.',401);
  const db=database(),now=new Date().toISOString();
  if(data.action==='membership'){
- const v=z.object({name:text,phone:z.string().trim().min(7).max(30),brca:z.string().trim().max(60),plan:z.enum(['adult','junior']),guardian:z.string().trim().max(150),consent:z.literal(true)}).parse(data);
+ const v=z.object({name:personName,phone:z.string().trim().min(7).max(30),brca:z.string().trim().max(60),plan:z.enum(['adult','junior']),guardian:z.string().trim().max(150),consent:z.literal(true)}).parse(data);
  if(v.plan==='junior'&&!v.guardian)return fail('A parent or guardian name is required for junior membership.');
  if(user.member)return fail('You already have a membership application. View it in My racing.',409);
  await db.prepare('INSERT INTO members (id,email,name,phone,brca,plan,guardian,status,role,payment,created) VALUES (?,?,?,?,?,?,?,\'pending\',\'member\',\'unpaid\',?)').bind(user.userId,user.email.toLowerCase(),v.name,v.phone,v.brca,v.plan,v.guardian,now).run();
  return ok({message:'Application received. Pay your membership fee in cash at the club; an administrator will approve it and assign your number.'});
  }
  if(data.action==='book'){
- const v=z.object({event_id:text,name:text,brca:text,race_class:z.enum(CLASSES),transponder:z.string().trim().max(60),method:z.enum(['cash','online']),consent:z.literal(true)}).parse(data);
+ const v=z.object({event_id:text,name:personName,brca:text,race_class:z.enum(CLASSES),transponder:z.string().trim().max(60),method:z.enum(['cash','online']),consent:z.literal(true)}).parse(data);
  const event=await db.prepare('SELECT * FROM events WHERE id=?').bind(v.event_id).first<RaceEvent>();
  if(!event||event.status!=='published'||event.cutoff<=now||event.starts<=now)return fail('Entries for this race are closed.');
  if(v.method==='online'&&!await onlineReady())return fail('Online payments are not available yet. Please choose cash.');
@@ -85,13 +86,13 @@ export async function POST(req:Request){try{
  await log(user.userId,'save_event',id);return ok({message:'Race event saved.',id});
  }
  if(data.action==='update_member'){
- const v=z.object({id:text,number:z.string().trim().max(30).regex(/^[A-Za-z0-9-]*$/).transform(s=>s.toUpperCase()||null),status:z.enum(['pending','active','inactive']),payment:z.enum(['unpaid','paid']),expires:z.string().nullable()}).parse(data);
+ const v=z.object({id:text,name:personName,number:z.string().trim().max(30).regex(/^[A-Za-z0-9-]*$/).transform(s=>s.toUpperCase()||null),status:z.enum(['pending','active','inactive']),payment:z.enum(['unpaid','paid']),expires:z.string().nullable()}).parse(data);
  const member=await db.prepare('SELECT * FROM members WHERE id=?').bind(v.id).first<Member>();if(!member)return fail('Member not found.',404);
  let expires=v.expires;if(expires&&!/^\d{4}-\d{2}-\d{2}$/.test(expires))return fail('Enter a valid expiry date.');
  if(v.status==='active'&&(!v.number||v.payment!=='paid'))return fail('Assign a membership number and confirm payment before approval.');
  if(v.status==='active'&&!expires){const d=new Date();d.setFullYear(d.getFullYear()+1);expires=d.toISOString().slice(0,10);}
  if(v.status==='active'&&(!expires||expires<now.slice(0,10)))return fail('Active membership needs a future expiry date.');
- await db.prepare('UPDATE members SET number=?,status=?,payment=?,expires=? WHERE id=?').bind(v.number,v.status,v.payment,expires?expires+'T23:59:59.999Z':null,v.id).run();await log(user.userId,'update_member',v.id);return ok({message:'Membership updated.'});
+ await db.batch([db.prepare('UPDATE members SET name=?,number=?,status=?,payment=?,expires=? WHERE id=?').bind(v.name,v.number,v.status,v.payment,expires?expires+'T23:59:59.999Z':null,v.id),db.prepare("UPDATE entries SET name=? WHERE user_id=? AND (name LIKE '%@%' OR trim(name)='')").bind(v.name,v.id)]);await log(user.userId,'update_member',v.id);return ok({message:'Membership updated.'});
  }
  if(data.action==='set_role'){
  if(!user.owner)return fail('Only the main administrator can change admin access.',403);
