@@ -1,0 +1,11 @@
+.footer-supporters{padding:32px 0 40px;border-bottom:1px solid #ffffff20}
+.supporters-heading{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:20px}
+.supporters-heading h2{font-size:1rem;font-weight:700;color:#fff}
+.supporters-heading p{font-size:.85rem;color:#bac5b3}
+.supporters-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.club-footer .supporter-logo{display:flex;align-items:center;justify-content:center;height:132px;padding:20px;background:#fff;border:2px solid transparent;border-radius:4px;transition:border-color .18s}
+.supporter-logo img{display:block;width:auto;height:auto;max-width:100%;max-height:88px;object-fit:contain}
+.club-footer .supporter-logo:hover{border-color:#d0f344}
+.club-footer .supporter-logo:focus-visible{outline:3px solid #d0f344;outline-offset:4px}
+@media(max-width:640px){.supporters-heading{display:block}.supporters-heading p{margin-top:8px}.supporters-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.club-footer .supporter-logo{height:112px;padding:14px}.supporter-logo img{max-height:80px}}
+@media(prefers-reduced-motion:reduce){.club-footer .supporter-logo{transition:none}}
