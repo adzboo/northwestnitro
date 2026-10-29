@@ -10,7 +10,28 @@ export async function POST(req:Request){
  if(!isAllowedOrigin(req))return Response.json({error:'Please submit from this website.'},{status:403});
  try{const raw=await req.text();if(raw.length>3000)return Response.json({error:'Request too large.'},{status:413});const d=JSON.parse(raw);const auth=await authClient();
  if(d.action==='signout'){await auth.auth.signOut();return Response.json({returnTo:'/'});}
+ if(d.action==='verify_recovery'){
+ const token_hash=z.string().min(1).max(512).parse(d.token);
+ const {error}=await auth.auth.verifyOtp({token_hash,type:'recovery'});
+ if(error)return Response.json({error:'This reset link has expired or already been used. Please request a new one.'},{status:400});
+ return Response.json({verified:true});
+ }
+ if(d.action==='update_password'){
+ const password=z.string().min(12).max(128).parse(d.password);
+ const {data:{user},error:sessionError}=await auth.auth.getUser();
+ if(sessionError||!user)return Response.json({error:'Your reset session has expired. Please request a new link.'},{status:401});
+ const {error}=await auth.auth.updateUser({password});
+ if(error)return Response.json({error:'Unable to update the password. Choose a different password of at least 12 characters and try again.'},{status:400});
+ await auth.auth.signOut();
+ return Response.json({updated:true});
+ }
  const email=z.string().trim().email().max(254).parse(d.email).toLowerCase();
+ if(d.action==='reset_password'){
+ const site=process.env.SITE_URL;if(!site)return Response.json({error:'Password recovery is not configured. Please contact the club.'},{status:503});
+ const {error}=await auth.auth.resetPasswordForEmail(email,{redirectTo:new URL('/reset-password',site).href});
+ if(error)return Response.json({error:'Unable to send a reset email right now. Please wait a few minutes and try again, or contact the club.'},{status:503});
+ return Response.json({message:'If an account exists for this email, a password reset link will be sent. Check your inbox and spam folder.'});
+ }
  if(d.action==='signup'||d.action==='signin'){
  const password=z.string().min(d.action==='signup'?12:1).max(128).parse(d.password);
  if(d.action==='signup'){
