@@ -1,6 +1,11 @@
 import {isAllowedOrigin} from '@/lib/request-origin';
 import {authClient,safeReturn} from '@/lib/auth';
 import {z} from 'zod';
+import {getMemberUser} from '@/lib/member-auth';
+export async function GET(){
+ try{return Response.json({signedIn:!!await getMemberUser()},{headers:{'Cache-Control':'private, no-store'}});}
+ catch{return Response.json({error:'Session check unavailable.'},{status:503,headers:{'Cache-Control':'private, no-store'}});}
+}
 export async function POST(req:Request){
  if(!isAllowedOrigin(req))return Response.json({error:'Please submit from this website.'},{status:403});
  try{const raw=await req.text();if(raw.length>3000)return Response.json({error:'Request too large.'},{status:413});const d=JSON.parse(raw);const auth=await authClient();
