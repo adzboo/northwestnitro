@@ -1,10 +1,10 @@
 import './footer-supporters.css';
 
 const supporters = [
+  { name: 'Answer-RC', image: 'answer-rc', url: 'https://answer-rc.com/' },
   { name: 'Trackside Performance', image: 'trackside-performance', url: 'https://tracksideperformance.co.uk/' },
   { name: 'TKR Graphics', image: 'tkr-graphics', url: 'https://tkrgraphics.com/' },
   { name: 'ERP Distribution', image: 'erp-distribution', url: 'https://www.erpdistribution.co.uk/' },
-  { name: 'Answer-RC', image: 'answer-rc', url: 'https://answer-rc.com/' },
 ];
 
 export default function FooterSupporters() {
