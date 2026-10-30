@@ -1,6 +1,7 @@
 import './home-centre.css';
 import LatestResults from './latest-results';
 import { ArrowUpRight, MapPin, Timer, Users } from 'lucide-react';
+export const metadata={alternates:{canonical:'/'}};
 export default function Home(){return <>
 <section className="hero"><img src="/track.jpg" alt="The outdoor dirt race track at North West Nitro near Blackpool"/><div className="hero-shade"/><div className="hero-content wrap"><span className="eyebrow"><span/> BLACKPOOL, LANCASHIRE</span><h1>SMALL CARS.<br/>BIG <em>RACING.</em></h1><p>Proper off-road racing. A passionate RC community.<br/>Welcome to North West Nitro.</p><div className="actions"><a className="button lime" href="/events">Explore the race calendar <ArrowUpRight size={20}/></a><a className="button glass" href="/membership">Join the club <ArrowUpRight size={20}/></a></div></div><div className="hero-caption">YOUR NEXT RACE STARTS HERE <span>01 / NWN</span></div></section>
 <div className="class-strip"><div className="wrap"><span>FOUR CLASSES. ONE PASSION.</span><b>NITRO BUGGY</b><i/><b>ELECTRIC BUGGY</b><i/><b>NITRO TRUGGY</b><i/><b>ELECTRIC TRUGGY</b></div></div>
