@@ -2,7 +2,7 @@ import {isAllowedOrigin} from '@/lib/request-origin';
 import {z} from 'zod';
 import {database,runtime} from '@/db/store';
 import {identity,log} from '@/lib/server';
-import {CLASSES,OWNER_EMAIL,INITIAL_ADMIN_EMAIL,Member,Entry,RaceEvent,memberPriceApplies} from '@/lib/club';
+import {CLASSES,OWNER_EMAIL,INITIAL_ADMIN_EMAIL,Member,Entry,RaceEvent,raceEntryPrice} from '@/lib/club';
 import {checkout} from '@/lib/payments';
 export const dynamic='force-dynamic';
 const ok=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
@@ -40,8 +40,8 @@ export async function POST(req:Request){try{
  const event=await db.prepare('SELECT * FROM events WHERE id=?').bind(v.event_id).first<RaceEvent>();
  if(!event||event.status!=='published'||event.cutoff<=now||event.starts<=now)return fail('Entries for this race are closed.');
  if(v.method==='online'&&!await onlineReady())return fail('Online payments are not available yet. Please choose cash.');
- const m=user.member;const active=memberPriceApplies(m,event.starts);if(!active)return fail('Race entry requires an approved, paid membership valid on the race date.',403);
- const amount=active?event.member_price:event.guest_price;const id=crypto.randomUUID();
+ 
+ const amount=raceEntryPrice(user.member,event);const id=crypto.randomUUID();
  const result=await db.prepare(`INSERT INTO entries (id,event_id,user_id,email,name,brca,race_class,transponder,amount,method,payment,status,created) SELECT ?,?,?,?,?,?,?,?,?,?,'unpaid','confirmed',? WHERE (SELECT COUNT(*) FROM entries WHERE event_id=? AND status='confirmed') < (SELECT capacity FROM events WHERE id=? AND status='published' AND cutoff>?) ON CONFLICT(event_id,user_id) DO NOTHING`).bind(id,event.id,user.userId,user.email,v.name,v.brca,v.race_class,v.transponder,amount,v.method,now,event.id,event.id,now).run();
  if(!result.meta.changes)return fail('This race is full or you already have an entry. Check My racing.',409);
  if(v.method==='online')return ok({message:'Entry reserved. Continue to secure payment.',entryId:id,checkoutUrl:await checkout(id,user.userId)});

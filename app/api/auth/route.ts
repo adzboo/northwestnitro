@@ -38,7 +38,7 @@ export async function POST(req:Request){
  const settings=await fetch(process.env.SUPABASE_URL+'/auth/v1/settings',{headers:{apikey:process.env.SUPABASE_PUBLISHABLE_KEY!},cache:'no-store'});
  const config=await settings.json();if(!settings.ok||config.mailer_autoconfirm!==true)return Response.json({error:'Registration is not ready yet. The club must disable email confirmation in Supabase before accounts can be created without emails.'},{status:503});
  const {data,error}=await auth.auth.signUp({email,password});if(error||!data.session)return Response.json({error:'Unable to create this account. If you already have an account, sign in instead.'},{status:400});
- return Response.json({returnTo:'/membership'});
+ const destination=safeReturn(d.returnTo);return Response.json({returnTo:destination.startsWith('/events?')||destination==='/events'?destination:'/membership'});
  }
  const {error}=await auth.auth.signInWithPassword({email,password});if(error)return Response.json({error:'Email or password is incorrect, or the account is unavailable.'},{status:400});return Response.json({returnTo:safeReturn(d.returnTo)});
  }

@@ -15,3 +15,5 @@ export function ukToIso(s:string){let n=Date.parse(s+'Z');if(!Number.isFinite(n)
 export function memberPriceApplies(member:Member|null|undefined,raceStarts:string){
  return !!(member?.status==='active'&&member.number&&member.payment==='paid'&&member.expires&&member.expires.slice(0,10)>=localInput(raceStarts).slice(0,10));
 }
+
+export function raceEntryPrice(member:Member|null|undefined,event:Pick<RaceEvent,'starts'|'member_price'|'guest_price'>){return memberPriceApplies(member,event.starts)?event.member_price:event.guest_price;}
